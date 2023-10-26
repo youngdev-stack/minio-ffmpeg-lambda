@@ -1,0 +1,275 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/baileys/docker/getContainerList": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ContainerApi"
+                ],
+                "summary": "获取Docker容器列表",
+                "responses": {
+                    "200": {
+                        "description": "创建基础api",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.GetContainerListResp"
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/baileys/k8s/getPodList": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PodApi"
+                ],
+                "summary": "获取K8s Pod列表",
+                "parameters": [
+                    {
+                        "description": "命名空间",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.GetPodListReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取K8s Pod列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.GetPodListResp"
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/baileys/setting/getRuntime": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RuntimeApi"
+                ],
+                "summary": "获取当前运行模式",
+                "responses": {
+                    "200": {
+                        "description": "创建基础api",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "request.GetPodListReq": {
+            "type": "object",
+            "properties": {
+                "namespace": {
+                    "description": "命名空间",
+                    "type": "string"
+                }
+            }
+        },
+        "response.ContainerInfo": {
+            "type": "object",
+            "properties": {
+                "createAt": {
+                    "description": "创建时间",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "容器ID",
+                    "type": "string"
+                },
+                "image": {
+                    "description": "容器镜像",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "容器名",
+                    "type": "string"
+                },
+                "ready": {
+                    "description": "是否就绪",
+                    "type": "boolean"
+                },
+                "restartCount": {
+                    "description": "容器重启次数",
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "容器运行状态",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "容器详情",
+                    "type": "string"
+                }
+            }
+        },
+        "response.GetContainerListResp": {
+            "type": "object",
+            "properties": {
+                "containers": {
+                    "description": "容器列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.ContainerInfo"
+                    }
+                }
+            }
+        },
+        "response.GetPodListResp": {
+            "type": "object",
+            "properties": {
+                "pods": {
+                    "description": "Pod列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.PodInfo"
+                    }
+                }
+            }
+        },
+        "response.PodContainerInfo": {
+            "type": "object",
+            "properties": {
+                "containerName": {
+                    "description": "容器名称",
+                    "type": "string"
+                },
+                "image": {
+                    "description": "容器镜像",
+                    "type": "string"
+                },
+                "podName": {
+                    "description": "Pod名称",
+                    "type": "string"
+                },
+                "ready": {
+                    "description": "是否就绪",
+                    "type": "boolean"
+                }
+            }
+        },
+        "response.PodInfo": {
+            "type": "object",
+            "properties": {
+                "containerStatus": {
+                    "description": "容器状态",
+                    "type": "string"
+                },
+                "containers": {
+                    "description": "容器列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.PodContainerInfo"
+                    }
+                },
+                "createAt": {
+                    "description": "创建时间",
+                    "type": "string"
+                },
+                "podName": {
+                    "description": "Pod名称",
+                    "type": "string"
+                },
+                "podStatus": {
+                    "description": "Pod状态",
+                    "type": "string"
+                },
+                "restartCount": {
+                    "description": "重启次数",
+                    "type": "integer"
+                },
+                "runOften": {
+                    "description": "运行时长",
+                    "type": "string"
+                },
+                "workloadName": {
+                    "description": "工作负载名称",
+                    "type": "string"
+                }
+            }
+        },
+        "response.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "msg": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

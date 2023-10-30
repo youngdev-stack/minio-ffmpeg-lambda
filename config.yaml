@@ -2,7 +2,7 @@
 zap:
   level: info
   format: console
-  prefix: "[baileys]"
+  prefix: "[minio-ffmpeg-lambda]"
   director: log
   show-line: true
   encode-level: LowercaseColorLevelEncoder

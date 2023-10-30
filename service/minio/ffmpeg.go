@@ -10,7 +10,6 @@ import (
 	"github.com/youngdev-stack/minio-ffmpeg-lambda/models/minio/request"
 	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,12 +28,12 @@ type FfmpegService struct {
 	bucketName     string
 }
 
-func (f FfmpegService) ConvertVideo(event request.EventReq) error {
+func (f *FfmpegService) ConvertVideo(event request.EventReq) error {
 
 	f.s3URL = event.GetObjectContext.InputS3Url
 	f.userRequestUrl = event.UserRequest.Url
 	f.userIdentity = event.UserIdentity
-	f.bucketName = strings.Split(event.UserRequest.Url, "/")[0]
+	f.bucketName = strings.Split(event.UserRequest.Url, "/")[1]
 	inputURL, err := url.Parse(f.s3URL)
 	if err != nil {
 		global.GlobalLog.Error("inputURL parse error", zap.Any("err: ", err))
@@ -54,6 +53,7 @@ func (f FfmpegService) ConvertVideo(event request.EventReq) error {
 	}
 
 	f.filePrefix, f.fileSuffix = splitFileName(f.fileName)
+
 	if err := f.downloadAndConvert(); err != nil {
 		global.GlobalLog.Error("convert error", zap.Any("err: ", err))
 		return err
@@ -66,52 +66,48 @@ func (f FfmpegService) ConvertVideo(event request.EventReq) error {
 	return nil
 }
 
-func (f FfmpegService) downloadAndConvert() error {
+func (f *FfmpegService) downloadAndConvert() error {
 	// 下载文件
-	r, err := http.Get(f.s3URL)
+	resp, err := http.Get(f.s3URL)
 	if err != nil {
-		global.GlobalLog.Error("download file error", zap.Any("err: ", err))
+		global.GlobalLog.Error("download file error", zap.Error(err))
 		return err
 	}
+	defer resp.Body.Close()
 
 	// 保存文件
 	file, err := os.Create(f.fileName)
 	if err != nil {
-		fmt.Println(err)
+		global.GlobalLog.Error("create file error", zap.Error(err))
 		return err
 	}
 	defer os.Remove(file.Name())
 	defer file.Close()
 
-	// 创建存储目录
-	err = os.Mkdir(f.filePrefix, 0777)
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(f.filePrefix)
-
-	_, err = io.Copy(file, r.Body)
-	if err != nil {
-		global.GlobalLog.Error("copy file error", zap.Any("err: ", err))
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		global.GlobalLog.Error("copy file error", zap.Error(err))
 		return err
 	}
 
 	if err := f.convert(); err != nil {
-		global.GlobalLog.Error("convert error", zap.Any("err: ", err))
+		global.GlobalLog.Error("convert error", zap.Error(err))
 		return err
 	}
 
 	return nil
-
 }
 
-func (f FfmpegService) uploadMinio() error {
+func (f *FfmpegService) uploadMinio() error {
+
+	defer os.RemoveAll(f.filePrefix)
+
 	s3Client, err := minio.New(f.minioHost, &minio.Options{
 		Creds:  credentials.NewStaticV4(f.userIdentity.PrincipalId, f.userIdentity.AccessKeyId, ""),
 		Secure: false,
 	})
 	if err != nil {
-		log.Fatalln(err)
+		global.GlobalLog.Error("minio client init error", zap.Any("error", err))
+		return err
 	}
 
 	filePath := "/home/youngdev-stack/minio-ffmpeg-lambda/" + f.filePrefix
@@ -132,17 +128,25 @@ func (f FfmpegService) uploadMinio() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Successfully uploaded %s\n", objectName)
+
+		global.GlobalLog.Info("upload success", zap.Any("objectName", objectName))
 		return nil
 	})
 
 }
 
-func (f FfmpegService) convert() error {
+func (f *FfmpegService) convert() error {
+
+	// 创建存储目录
+	err := os.Mkdir(f.filePrefix, 0777)
+	if err != nil {
+		return err
+	}
+
 	trans := new(transcoder.Transcoder)
 
 	// 文件存储路径为 filePrefix/filePrefix+%d.ts
-	err := trans.Initialize(f.fileName, f.filePrefix+"/"+f.filePrefix+".m3u8")
+	err = trans.Initialize(f.fileName, f.filePrefix+"/"+f.filePrefix+".m3u8")
 	if err != nil {
 		return err
 	}
@@ -157,6 +161,9 @@ func (f FfmpegService) convert() error {
 	trans.MediaFile().SetAudioBitRate("64k")
 	trans.MediaFile().SetHlsSegmentDuration(2)
 	trans.MediaFile().SetOutputFormat("hls")
+	trans.MediaFile().SetTune("fastdecode")
+	trans.MediaFile().SetPreset("ultrafast")
+
 	done := trans.Run(true)
 	progress := trans.Output()
 	for p := range progress {
@@ -174,14 +181,12 @@ func (f FfmpegService) convert() error {
 
 // 按.切割文件前缀名和后缀名
 func splitFileName(fileName string) (string, string) {
-	var (
-		fileNamePrefix string
-		fileNameSuffix string
-	)
 	if fileName == "" {
-		return fileNamePrefix, fileNameSuffix
+		return "", ""
 	}
-	fileNamePrefix = fileName[:strings.LastIndex(fileName, ".")]
-	fileNameSuffix = fileName[strings.LastIndex(fileName, "."):]
-	return fileNamePrefix, fileNameSuffix
+	index := strings.LastIndex(fileName, ".")
+	if index == -1 {
+		return fileName, ""
+	}
+	return fileName[:index], fileName[index:]
 }

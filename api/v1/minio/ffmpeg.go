@@ -23,9 +23,10 @@ func (e FfmpegAPI) CovertVideo(c *gin.Context) {
 		return
 	}
 
-	if err := ffmpegService.ConvertVideo(eventReq); err != nil {
-		response.FailWithMessage(err.Error(), c)
-		return
-	}
-	response.OkWithData("转码成功", c)
+	c.Header("x-amz-request-route", eventReq.GetObjectContext.OutputRoute)
+	c.Header("x-amz-request-token", eventReq.GetObjectContext.OutputToken)
+
+	go ffmpegService.ConvertVideo(eventReq)
+
+	response.OkWithDetailed("", "发起转码成功", c)
 }
